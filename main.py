@@ -108,7 +108,7 @@ source: [AI타임스, 한국경제, 베리타스알파]
     # filename = f"{today_str}_{time_tag}_Daily_News_Briefing.md"
     
     # 또는 더 구체적인 시간을 원하신다면:
-    filename = f"{today_str}_{now.strftime('%H시%M분')}_Daily_News_Briefing.md"
+    filename = f"{today_str}_{time_tag}_{now.strftime('%I시_%M분')}_Daily_News_Briefing.md"
     
     return filename, markdown
 
