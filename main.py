@@ -1,56 +1,75 @@
-import feedparser
 import datetime
 import re
+import requests
+from bs4 import BeautifulSoup
 import trafilatura
 
 def get_clean_summary(url):
     try:
-        # User-Agent를 브라우저처럼 위장하여 차단 방지
+        # 뉴스 본문 추출을 위한 최적 설정
         downloaded = trafilatura.fetch_url(url)
-        
-        if downloaded is None:
-            return ""
+        if downloaded is None: return ""
 
-        # 본문 추출
-        text = trafilatura.extract(downloaded, include_comments=False)
-        
-        if not text or len(text) < 50:
-            return ""
+        text = trafilatura.extract(downloaded, include_comments=False, include_tables=False)
+        if not text or len(text) < 100: return ""
 
-        # 텍스트 정제
-        text = text.replace('\n', ' ').strip()
-        text = re.sub(r'\s+', ' ', text)
+        # 불필요한 공백 및 줄바꿈 정제
+        text = re.sub(r'\s+', ' ', text).strip()
 
-        # 문장 분리 및 요약
+        # 문장 단위 추출 및 요약
         sentences = text.split('. ')
         summary_sentences = []
         char_count = 0
         
         for sent in sentences:
             clean_sent = sent.strip()
-            if len(clean_sent) < 15: continue
-            
-            if not clean_sent.endswith('.'):
-                clean_sent += '.'
+            if len(clean_sent) < 25: continue # 너무 짧은 문장 제외
+            if not clean_sent.endswith('.'): clean_sent += '.'
             
             summary_sentences.append(clean_sent)
             char_count += len(clean_sent)
-            
-            if char_count > 300: # 요약 길이 최적화
-                break
+            if char_count > 350: break # 핵심 내용 위주 요약
         
-        return ' '.join(summary_sentences) if summary_sentences else ""
-
-    except Exception as e:
-        print(f"Error: {url} -> {e}")
+        return ' '.join(summary_sentences)
+    except:
         return ""
 
+def get_naver_section_links(sid1, sid2=None):
+    """
+    네이버 뉴스 섹션에서 리디렉션 없는 직접 기사 링크를 추출합니다.
+    sid1: 105(IT), 101(경제), 102(사회)
+    sid2: 250(교육)
+    """
+    links = []
+    url = f"https://news.naver.com/main/main.naver?mode=LSD&mid=shm&sid1={sid1}"
+    if sid2:
+        url += f"&sid2={sid2}"
+        
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 기사 링크 패턴(n.news.naver.com) 탐색
+        for a in soup.select('a[href*="article"]'):
+            href = a['href']
+            if 'n.news.naver.com/mnews/article/' in href:
+                full_url = href.split('?')[0]
+                if full_url not in links:
+                    links.append(full_url)
+            if len(links) >= 5: break 
+    except Exception as e:
+        print(f"Scraping Error: {e}")
+    
+    return links
+
 def fetch_news():
-    # 교육 소스를 더 안정적인 '베리타스알파'로 변경했습니다.
-    sources = {
-        "🤖 인공지능 (AI)": "http://www.aitimes.com/rss/allArticle.xml",
-        "💰 경제": "https://www.hankyung.com/feed/economy", 
-        "🎓 교육": "http://www.veritas-a.com/rss/allArticle.xml" 
+    # 교육(sid2: 250) 섹션을 명확히 지정하여 누락 방지
+    sections = {
+        "🤖 인공지능 (AI)": {"sid1": "105"},
+        "💰 경제": {"sid1": "101"},
+        "🎓 교육": {"sid1": "102", "sid2": "250"}
     }
     
     now = datetime.datetime.now()
@@ -61,39 +80,29 @@ date: {today_str}
 last_update: {now.strftime("%Y-%m-%d %H:%M:%S")}
 type: insight
 topic: [인공지능, 경제, 교육]
-tags: [뉴스, 요약, {today_str}]
-source: [AI타임스, 한국경제, 베리타스알파]
 ---
 
 # 📅 {now.strftime('%Y년 %m월 %d일(%a)')} 핵심 뉴스 브리핑
 
 """
     
-    for category, rss_url in sources.items():
+    for category, ids in sections.items():
         markdown += f"## {category}\n"
-        try:
-            feed = feedparser.parse(rss_url)
-            success_count = 0
+        links = get_naver_section_links(ids['sid1'], ids.get('sid2'))
+        success_count = 0
+        
+        for link in links:
+            if success_count >= 2: break
+            summary = get_clean_summary(link)
+            if not summary: continue
             
-            for entry in feed.entries:
-                if success_count >= 2: break
-                
-                summary = get_clean_summary(entry.link)
-                
-                if not summary:
-                    continue
-                
-                markdown += f"### 🔗 [{entry.title}]({entry.link})\n"
-                markdown += f"> {summary}\n\n"
-                success_count += 1
-                
-        except Exception:
-            markdown += "> 해당 분야의 뉴스를 가져오지 못했습니다.\n\n"
+            markdown += f"### 🔗 [기사 원문 확인하기]({link})\n"
+            markdown += f"> {summary}\n\n"
+            success_count += 1
+            
+        if success_count == 0:
+            markdown += "> 해당 분야의 최신 뉴스를 불러오지 못했습니다.\n\n"
 
-    markdown += "---\n### 📂 자동화 기록 안내\n"
-    markdown += f"최종 업데이트 시각: **{now.strftime('%Y-%m-%d %H:%M:%S')}**\n"
-    
-    # 파일명을 영어로 고정하여 인코딩 깨짐 방지
     filename = f"{today_str}_Daily_News_Briefing.md"
     return filename, markdown
 
@@ -101,4 +110,3 @@ if __name__ == "__main__":
     filename, content = fetch_news()
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
-    print(f"Created: {filename}")
