@@ -49,8 +49,13 @@ def fetch_korean_news():
                 markdown += f"### 🔗 [{entry.title}]({entry.link})\n"
                 markdown += f"> {content_summary}\n\n"
 
+                # (기존 코드의 first_title 생성 부분을 아래로 교체)
                 if not first_title:
-                    first_title = re.sub(r'[^가-힣a-zA-Z0-9]', '', entry.title)[:15]
+                    # 1. 특수문자 제거 (공백은 유지)
+                    clean_title = re.sub(r'[^가-힣a-zA-Z0-9\s]', '', entry.title).strip()
+                    # 2. 공백을 언더바(_)로 치환하고 15자까지만 자름
+                    safe_title = clean_title.replace(" ", "_")[:15]
+                    first_title = safe_title
         except:
             markdown += "뉴스를 불러오는 중 오류가 발생했습니다.\n\n"
 
