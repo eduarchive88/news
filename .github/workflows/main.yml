@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install feedparser trafilatura lxml_html_clean
+          pip install requests beautifulsoup4 trafilatura lxml_html_clean
 
       - name: Run script
         run: python main.py
