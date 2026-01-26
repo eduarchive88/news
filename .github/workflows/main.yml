@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install feedparser googletrans==4.0.0-rc1
+          pip install feedparser googletrans==4.0.0-rc1 newspaper3k nltk lxml_html_clean
 
       - name: Run script
         run: python main.py
