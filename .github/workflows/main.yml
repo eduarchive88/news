@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install feedparser
+          pip install feedparser googletrans==4.0.0-rc1
 
       - name: Run script
         run: python main.py
