@@ -1,29 +1,47 @@
-import feedparser
-import datetime
-import os
-
 def fetch_news():
-    # 경제 뉴스 RSS 피드 (예: 매일경제)
-    rss_url = "https://www.mk.co.kr/rss/30100041/" 
-    feed = feedparser.parse(rss_url)
+    # 분야별로 신뢰도 높은 서로 다른 언론사 RSS를 지정합니다.
+    feeds = {
+        "인공지능(AI)": "http://www.aitimes.com/rss/allArticle.xml", # AI 전문지
+        "교육": "https://www.edunews.co.kr/rss/allArticle.xml",     # 교육 전문지
+        "정치/사회": "https://www.yna.co.kr/rss/news.xml"           # 연합뉴스 속보
+    }
     
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-    content = f"---\ndate: {today}\ntags: [경제, 뉴스, 자동화]\n---\n\n# 📅 {today} 경제 뉴스 브리핑\n\n"
+    today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    today_with_day = datetime.datetime.now().strftime("%Y-%m-%d(%a)")
     
-    for entry in feed.entries[:10]: # 최신 뉴스 10개
-        content += f"### 📌 {entry.title}\n"
-        content += f"- **요약:** {entry.description if 'description' in entry else '링크 참조'}\n"
-        content += f"- [기사 원문 보기]({entry.link})\n\n"
+    content = f"""---
+date: {today_str}
+type: insight
+tags: [AI, 교육, 정치, 사회]
+---
+
+# 📅 {today_with_day} 분야별 종합 뉴스 브리핑
+
+"""
+
+    brief_summary = ""
+
+    for category, url in feeds.items():
+        feed = feedparser.parse(url)
+        # 피드 연결 실패 시 건너뛰기
+        if not feed.entries:
+            continue
+            
+        content += f"## 📌 {category} 분야\n"
         
-    return today, content
+        for i, entry in enumerate(feed.entries[:3]):
+            # HTML 태그 제거
+            summary = re.sub('<[^<]+?>', '', entry.description) if 'description' in entry else "내용은 링크를 참조하세요."
+            # 요약 내용이 너무 길면 자르기
+            summary = summary.strip()[:150] + "..." if len(summary) > 150 else summary
+            
+            content += f"### {entry.title}\n"
+            content += f"- **핵심내용:** {summary}\n"
+            content += f"- [기사 원문 보기]({entry.link})\n\n"
+            
+            # 파일 제목용 요약 (첫 번째 분야의 첫 번째 기사 제목)
+            if not brief_summary:
+                brief_summary = re.sub(r'[\\/:*?"<>|]', '', entry.title)[:20]
 
-def save_to_file(today, content):
-    filename = f"{today}-economy-summary.md"
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(content)
-    return filename
-
-if __name__ == "__main__":
-    today, content = fetch_news()
-    save_to_file(today, content)
-    print(f"File created successfully: {today}")
+    filename = f"{today_str} {brief_summary}.md"
+    return filename, content
