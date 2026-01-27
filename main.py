@@ -114,7 +114,7 @@ date: {today_str}
 time: "{time_str}"
 type: insight
 tags: [뉴스, {time_tag}, AI, 경제, 교육]
-created_at: "{today_str} {time_str} +09:00"
+created_at: "{today_str} {time_str}"
 ---
 
 # 📅 {today_str} {time_tag} 브리핑: {headline_str}
