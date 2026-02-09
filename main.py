@@ -62,7 +62,7 @@ def fetch_news():
     
     now = get_korea_time()
     today_str = now.strftime("%Y-%m-%d")
-    time_str = now.strftime("%I:%M:%S")
+    time_str = now.strftime("%I-%M-%S")
     
     # 오전/오후 태그 설정
     time_tag = "오전" if now.hour < 12 else "오후"
